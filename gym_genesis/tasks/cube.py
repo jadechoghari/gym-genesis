@@ -7,7 +7,7 @@ import torch
 class CubeTask:
     def __init__(self, enable_pixels=False):
         self.enable_pixels = enable_pixels
-        self._random = np.random.RandomState()  # ✅ always define it
+        self._random = np.random.RandomState()
         self._build_scene()
         self.action_space = spaces.Box(low=-1.0, high=1.0, shape=(9,), dtype=np.float32)
 
@@ -80,7 +80,7 @@ class CubeTask:
         self._random = np.random.RandomState(seed)
         torch.manual_seed(seed)
         torch.cuda.manual_seed_all(seed)
-        self.action_space.seed(42)
+        self.action_space.seed(seed)
 
     def step(self, action):
         self.franka.control_dofs_position(action[:7], self.motors_dof)

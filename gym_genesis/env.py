@@ -43,8 +43,6 @@ class GenesisEnv(gym.Env):
 
         info = {"is_success": is_success}
 
-        # observation = self._format_raw_obs(observation)
-
         truncated = False
         return observation, reward, terminated, truncated, info
     
