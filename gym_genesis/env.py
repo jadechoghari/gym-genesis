@@ -27,9 +27,9 @@ class GenesisEnv(gym.Env):
     
     def reset(self, seed=None, options=None):
         super().reset(seed=seed)
+        
         if seed is not None:
-            self._env.task.random.seed(seed)
-            self._env.task._random = np.random.RandomState(seed)
+            self._env.seed(seed)
 
         observation = self._env.reset()
 

@@ -1,13 +1,14 @@
 import genesis as gs
 import numpy as np
 from gymnasium import spaces
+import random
+import torch
 
 class CubeTask:
     def __init__(self, enable_pixels=False):
         self.enable_pixels = enable_pixels
+        self._random = np.random.RandomState()  # ✅ always define it
         self._build_scene()
-        self.random = np.random.RandomState()
-        self._random = self.random  # optional, for compatibility with seed()
         self.action_space = spaces.Box(low=-1.0, high=1.0, shape=(9,), dtype=np.float32)
 
 
@@ -46,11 +47,40 @@ class CubeTask:
         self.eef = self.franka.get_link("hand")
 
     def reset(self):
-        # Reset robot and cube
-        qpos = np.array([-1.0124, 1.5559, 1.3662, -1.6878, -1.5799, 1.7757, 1.4602, 0.04, 0.04])
-        self.franka.set_qpos(qpos)
-        self.scene.step()
+        # === Deterministic cube spawn using task._random ===
+        x = self._random.uniform(0.45, 0.80)
+        y = self._random.uniform(-0.25, 0.25)
+        z = 0.02
+        pos_tensor = torch.tensor([x, y, z], dtype=torch.float32, device=gs.device)
+        
+        self.cube.set_pos(pos_tensor)
+        self.cube.set_quat(torch.tensor([0, 0, 0, 1], dtype=torch.float32, device=gs.device))  # Reset rotation
+    
+        # Reset Franka to home position and zero velocities
+        qpos = np.array([
+            -1.0124, 1.5559, 1.3662, -1.6878, -1.5799, 1.7757, 1.4602, 0.04, 0.04
+        ])
+        self.franka.set_qpos(qpos, zero_velocity=True)
+    
+        # Reset arm position and zero velocity
+        self.franka.control_dofs_position(qpos[:7], self.motors_dof)
+        
+        # Reset gripper and zero velocity
+        self.franka.control_dofs_position(qpos[7:], self.fingers_dof)
+
+
+        self.scene.step()  # Apply state
+    
         return self.get_obs()
+
+        
+    def seed(self, seed):
+        np.random.seed(seed)
+        random.seed(seed)
+        self._random = np.random.RandomState(seed)
+        torch.manual_seed(seed)
+        torch.cuda.manual_seed_all(seed)
+        self.action_space.seed(42)
 
     def step(self, action):
         self.franka.control_dofs_position(action[:7], self.motors_dof)
@@ -73,7 +103,7 @@ class CubeTask:
         cube_pos = self.cube.get_pos().cpu().numpy()
         cube_rot = self.cube.get_quat().cpu().numpy()
         gripper = self.franka.get_dofs_position()[7:9].cpu().numpy()
-
+        
         state = np.concatenate([
             eef_pos,
             eef_rot,
@@ -83,10 +113,10 @@ class CubeTask:
             eef_pos - cube_pos,
             np.array([np.linalg.norm(eef_pos - cube_pos)]),
         ])
-        obs["state"] = state
-
-        # === Optional pixels ===
         if self.enable_pixels:
-            obs["pixels"] = self.cam.render()
+            return {
+                "state": state.astype(np.float32),
+                "pixels": self.cam.render()
+            }
 
-        return obs
+        return state.astype(np.float32)
