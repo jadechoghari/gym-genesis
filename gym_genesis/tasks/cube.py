@@ -13,6 +13,8 @@ class CubeTask:
 
 
     def _build_scene(self):
+        if not gs._initialized:
+          gs.init(backend=gs.gpu, precision="32")
         self.scene = gs.Scene(
             viewer_options=gs.options.ViewerOptions(
                 camera_pos=(3, -1, 1.5),
@@ -70,6 +72,10 @@ class CubeTask:
 
 
         self.scene.step()  # Apply state
+
+        # turn camera on
+        if self.enable_pixels:
+          self.cam.start_recording()
     
         return self.get_obs()
 
