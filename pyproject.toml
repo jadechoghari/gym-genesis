@@ -1,0 +1,13 @@
+[project]
+name = "gym_genesis"
+version = "0.1.0"
+description = "A gym environment for GENESIS"
+authors = [
+    "Jade Choghari <jchoghar@uwaterloo.ca>",
+    "Rémi Cadène <re.cadene@gmail.com>",
+]
+dependencies = ["gymnasium"]
+
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
