@@ -3,8 +3,8 @@ name = "gym_genesis"
 version = "0.1.0"
 description = "A gym environment for GENESIS"
 authors = [
-    "Jade Choghari <jchoghar@uwaterloo.ca>",
-    "Rémi Cadène <re.cadene@gmail.com>",
+  { name = "Jade Choghari", email = "jchoghar@uwaterloo.ca" },
+  { name = "Rémi Cadène", email = "re.cadene@gmail.com" }
 ]
 dependencies = ["gymnasium"]
 
