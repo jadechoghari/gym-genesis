@@ -21,9 +21,6 @@ class GenesisEnv(gym.Env):
         # === Set up Genesis scene (task-specific env will populate it) ===
         # gs.init(backend=gs.gpu, precision="32")
         self.scene = None  # Will be created in the child class
-
-    def render(self):
-        raise NotImplementedError("not implemented yet")
     
     def reset(self, seed=None, options=None):
         super().reset(seed=seed)
