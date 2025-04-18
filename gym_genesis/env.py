@@ -5,6 +5,8 @@ from gymnasium import spaces
 from gym_genesis.tasks.cube import CubeTask
 class GenesisEnv(gym.Env):
 
+    metadata = {"render_modes": ["rgb_array"], "render_fps": 50}
+
     def __init__(
             self,
             task,
@@ -67,4 +69,3 @@ class GenesisEnv(gym.Env):
             })
         else:
             return spaces.Box(low=-np.inf, high=np.inf, shape=(20,), dtype=np.float32)
-        
