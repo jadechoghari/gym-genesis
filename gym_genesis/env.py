@@ -50,7 +50,7 @@ class GenesisEnv(gym.Env):
         return self._env.get_obs()
 
     def render(self):
-        return self._env.cam.render() if self.enable_pixels else None
+        return self._env.cam.render()[0] if self.enable_pixels else None
     
     def _make_env_task(self, task_name):
         if task_name == "cube":
@@ -62,7 +62,7 @@ class GenesisEnv(gym.Env):
     def _make_obs_space(self):
         if self.enable_pixels:
             return spaces.Dict({
-                "state": spaces.Box(low=-np.inf, high=np.inf, shape=(20,), dtype=np.float32),
+                "agent_pos": spaces.Box(low=-np.inf, high=np.inf, shape=(20,), dtype=np.float32),
                 "pixels": spaces.Box(low=0, high=255, shape=(960, 1280, 3), dtype=np.uint8),
             })
         else:

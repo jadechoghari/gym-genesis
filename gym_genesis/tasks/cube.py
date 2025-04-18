@@ -121,8 +121,8 @@ class CubeTask:
         ])
         if self.enable_pixels:
             return {
-                "state": state.astype(np.float32),
-                "pixels": self.cam.render()
+                "agent_pos": state.astype(np.float32),
+                "pixels": self.cam.render()[0] # since render always return a tuple
             }
 
         return state.astype(np.float32)
