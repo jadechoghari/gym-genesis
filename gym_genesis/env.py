@@ -10,18 +10,21 @@ class GenesisEnv(gym.Env):
     def __init__(
             self,
             task,
-            enable_pixels=False
+            enable_pixels=False,
+            observation_height=480,
+            observation_width=640,
     ):
         super().__init__()
         self.task = task
         self.enable_pixels = enable_pixels
+        self.observation_height = observation_height
+        self.observation_width = observation_width
         self._env = self._make_env_task(self.task)
         # add action space (TODO: check if compatible)
         self.observation_space = self._make_obs_space()
         self.action_space = self._env.action_space
 
         # === Set up Genesis scene (task-specific env will populate it) ===
-        # gs.init(backend=gs.gpu, precision="32")
         self.scene = None  # Will be created in the child class
     
     def reset(self, seed=None, options=None):
@@ -56,7 +59,10 @@ class GenesisEnv(gym.Env):
     
     def _make_env_task(self, task_name):
         if task_name == "cube":
-            task = CubeTask(enable_pixels=self.enable_pixels)
+            task = CubeTask(enable_pixels=self.enable_pixels,
+                            observation_height=self.observation_height, 
+                            observation_width=self.observation_width
+                            )
         else:
             raise NotImplementedError(task_name)
         return task
@@ -65,7 +71,7 @@ class GenesisEnv(gym.Env):
         if self.enable_pixels:
             return spaces.Dict({
                 "agent_pos": spaces.Box(low=-np.inf, high=np.inf, shape=(20,), dtype=np.float32),
-                "pixels": spaces.Box(low=0, high=255, shape=(960, 1280, 3), dtype=np.uint8),
+                "pixels": spaces.Box(low=0, high=255, shape=(self.observation_height, self.observation_width, 3), dtype=np.uint8),
             })
         else:
             return spaces.Box(low=-np.inf, high=np.inf, shape=(20,), dtype=np.float32)

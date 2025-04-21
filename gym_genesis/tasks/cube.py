@@ -5,12 +5,13 @@ import random
 import torch
 
 class CubeTask:
-    def __init__(self, enable_pixels=False):
+    def __init__(self, enable_pixels, observation_height, observation_width):
         self.enable_pixels = enable_pixels
+        self.observation_height = observation_height
+        self.observation_width = observation_width
         self._random = np.random.RandomState()
         self._build_scene()
         self.action_space = spaces.Box(low=-1.0, high=1.0, shape=(9,), dtype=np.float32)
-
 
     def _build_scene(self):
         if not gs._initialized:
@@ -36,7 +37,7 @@ class CubeTask:
 
         if self.enable_pixels:
             self.cam = self.scene.add_camera(
-                res=(1280, 960),
+                res=(self.observation_height, self.observation_width),
                 pos=(3.5, 0.0, 2.5),
                 lookat=(0, 0, 0.5),
                 fov=30,
