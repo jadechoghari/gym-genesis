@@ -10,15 +10,19 @@ class GenesisEnv(gym.Env):
     def __init__(
             self,
             task,
-            enable_pixels=False,
-            observation_height=480,
-            observation_width=640,
+            enable_pixels = False,
+            observation_height = 480,
+            observation_width = 640,
+            num_envs = 1,
+            env_spacing = (1.0, 1.0)
     ):
         super().__init__()
         self.task = task
         self.enable_pixels = enable_pixels
         self.observation_height = observation_height
         self.observation_width = observation_width
+        self.num_envs = num_envs
+        self.env_spacing = env_spacing
         self._env = self._make_env_task(self.task)
         # add action space (TODO: check if compatible)
         self.observation_space = self._make_obs_space()
@@ -61,7 +65,9 @@ class GenesisEnv(gym.Env):
         if task_name == "cube":
             task = CubeTask(enable_pixels=self.enable_pixels,
                             observation_height=self.observation_height, 
-                            observation_width=self.observation_width
+                            observation_width=self.observation_width,
+                            num_envs = self.num_envs,
+                            env_spacing = self.env_spacing
                             )
         else:
             raise NotImplementedError(task_name)
@@ -70,8 +76,8 @@ class GenesisEnv(gym.Env):
     def _make_obs_space(self):
         if self.enable_pixels:
             return spaces.Dict({
-                "agent_pos": spaces.Box(low=-np.inf, high=np.inf, shape=(20,), dtype=np.float32),
-                "pixels": spaces.Box(low=0, high=255, shape=(self.observation_height, self.observation_width, 3), dtype=np.uint8),
+                "agent_pos": spaces.Box(low=-np.inf, high=np.inf, shape=(self.num_envs, 20), dtype=np.float32),
+                "pixels": spaces.Box(low=0, high=255, shape=(self.num_envs, self.observation_height, self.observation_width, 3), dtype=np.uint8),
             })
         else:
-            return spaces.Box(low=-np.inf, high=np.inf, shape=(20,), dtype=np.float32)
+            return spaces.Box(low=-np.inf, high=np.inf, shape=(self.num_envs, 20), dtype=np.float32)

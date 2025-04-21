@@ -5,15 +5,16 @@ import random
 import torch
 
 class CubeTask:
-    def __init__(self, enable_pixels, observation_height, observation_width):
+    def __init__(self, enable_pixels, observation_height, observation_width, num_envs, env_spacing):
         self.enable_pixels = enable_pixels
         self.observation_height = observation_height
         self.observation_width = observation_width
+        self.num_envs = num_envs
         self._random = np.random.RandomState()
-        self._build_scene()
+        self._build_scene(num_envs, env_spacing)
         self.action_space = spaces.Box(low=-1.0, high=1.0, shape=(9,), dtype=np.float32)
 
-    def _build_scene(self):
+    def _build_scene(self, num_envs, env_spacing):
         if not gs._initialized:
           gs.init(backend=gs.gpu, precision="32")
         self.scene = gs.Scene(
@@ -44,26 +45,29 @@ class CubeTask:
                 GUI=False
             )
 
-        self.scene.build()
+        self.scene.build(n_envs=num_envs, env_spacing=env_spacing)
         self.motors_dof = np.arange(7)
         self.fingers_dof = np.arange(7, 9)
         self.eef = self.franka.get_link("hand")
 
     def reset(self):
+        B = self.num_envs
         # === Deterministic cube spawn using task._random ===
-        x = self._random.uniform(0.45, 0.80)
-        y = self._random.uniform(-0.25, 0.25)
-        z = 0.02
+        x = self._random.uniform(0.45, 0.80, size=(B,))
+        y = self._random.uniform(-0.25, 0.25, size=(B,))
+        z = np.full((B,), 0.02)
         pos_tensor = torch.tensor([x, y, z], dtype=torch.float32, device=gs.device)
+        quat_tensor = torch.tensor([[0, 0, 0, 1]] * B, dtype=torch.float32, device=gs.device)
         
         self.cube.set_pos(pos_tensor)
-        self.cube.set_quat(torch.tensor([0, 0, 0, 1], dtype=torch.float32, device=gs.device))  # Reset rotation
+        self.cube.set_quat(quat_tensor)  # Reset rotation
     
         # Reset Franka to home position and zero velocities
         qpos = np.array([
             0.0, -0.4, 0.0, -2.2, 0.0, 2.0, 0.8, 0.04, 0.04
         ])
-        self.franka.set_qpos(qpos, zero_velocity=True)
+        qpos_tensor = torch.tensor(qpos, dtype=torch.float32, device=gs.device).repeat(B, 1)
+        self.franka.set_qpos(qpos_tensor, zero_velocity=True)
     
         # Reset arm position and zero velocity
         self.franka.control_dofs_position(qpos[:7], self.motors_dof)
@@ -90,40 +94,52 @@ class CubeTask:
         self.action_space.seed(seed)
 
     def step(self, action):
-        self.franka.control_dofs_position(action[:7], self.motors_dof)
-        self.franka.control_dofs_position(action[7:], self.fingers_dof)
+        self.franka.control_dofs_position(action[:, :7], self.motors_dof)
+        self.franka.control_dofs_position(action[:, 7:], self.fingers_dof)
         self.scene.step()
         reward = self.compute_reward()
         obs = self.get_obs()
         return None, reward, None, obs
 
-    def compute_reward(self):
+    def compute_reward_1(self):
         z = self.cube.get_pos().cpu().numpy()[-1]
         return float(z > 0.1)
+    
+    def compute_reward(self):
+        # Get z positions of cube in each env
+        z = self.cube.get_pos()  # (B, 3) if batched
+        if z.ndim == 2:
+            z = z[:, -1]
+            return (z > 0.1).float().cpu().numpy()  # shape: (B,)
+        else:
+            return float(z[-1] > 0.1)
 
     def get_obs(self):
-        obs = {}
+        # === batched state features ===
+        eef_pos = self.eef.get_pos().cpu().numpy()              # (B, 3)
+        eef_rot = self.eef.get_quat().cpu().numpy()             # (B, 4)
+        cube_pos = self.cube.get_pos().cpu().numpy()            # (B, 3)
+        cube_rot = self.cube.get_quat().cpu().numpy()           # (B, 4)
+        gripper = self.franka.get_dofs_position()[..., 7:9].cpu().numpy()  # (B, 2)
 
-        # === State features ===
-        eef_pos = self.eef.get_pos().cpu().numpy()
-        eef_rot = self.eef.get_quat().cpu().numpy()
-        cube_pos = self.cube.get_pos().cpu().numpy()
-        cube_rot = self.cube.get_quat().cpu().numpy()
-        gripper = self.franka.get_dofs_position()[7:9].cpu().numpy()
-        
+        diff = eef_pos - cube_pos                               # (B, 3)
+        dist = np.linalg.norm(diff, axis=1, keepdims=True)      # (B, 1)
+
         state = np.concatenate([
-            eef_pos,
-            eef_rot,
-            cube_pos,
-            cube_rot,
-            gripper,
-            eef_pos - cube_pos,
-            np.array([np.linalg.norm(eef_pos - cube_pos)]),
-        ])
+            eef_pos,      # (B, 3)
+            eef_rot,      
+            cube_pos,  
+            cube_rot,    
+            gripper,      
+            diff,        
+            dist         
+        ], axis=1)  # → shape: (B, 20)
+
         if self.enable_pixels:
             return {
-                "agent_pos": state.astype(np.float32),
-                "pixels": self.cam.render()[0] # since render always return a tuple
+                "agent_pos": state.astype(np.float32),           # (B, 20)
+                "pixels": self.cam.render()[0]                  # (B, H, W, 3)
             }
 
-        return state.astype(np.float32)
+        return state.astype(np.float32)                         # (B, 20)
+
