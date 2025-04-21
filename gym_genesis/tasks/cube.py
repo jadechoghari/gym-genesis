@@ -60,7 +60,7 @@ class CubeTask:
     
         # Reset Franka to home position and zero velocities
         qpos = np.array([
-            -1.0124, 1.5559, 1.3662, -1.6878, -1.5799, 1.7757, 1.4602, 0.04, 0.04
+            0.0, -0.4, 0.0, -2.2, 0.0, 2.0, 0.8, 0.04, 0.04
         ])
         self.franka.set_qpos(qpos, zero_velocity=True)
     
